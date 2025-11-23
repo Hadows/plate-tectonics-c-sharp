@@ -8,15 +8,43 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Export compile commands for clang-tidy and other tools
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Treat warnings as errors
+if(MSVC)
+    add_compile_options(/W4 /WX)
+    # Note: ASAN disabled on Windows as it causes tests to hang with vcpkg libraries
+    # Enable with -DENABLE_ASAN=ON if needed for debugging
+    if(ENABLE_ASAN)
+        add_compile_options(/fsanitize=address)
+        add_link_options(/fsanitize=address)
+    endif()
+else()
+    add_compile_options(-Wall -Wextra -Werror)
+endif()
+
 add_library(PlateTectonics src/sqrdmd.cpp src/heightmap.cpp src/lithosphere.cpp src/plate.cpp src/rectangle.cpp src/platecapi.cpp src/simplexnoise.cpp src/noise.cpp src/utils.cpp src/simplerandom.cpp src/plate_functions.cpp src/bounds.cpp src/movement.cpp src/mass.cpp src/segments.cpp src/world_point.cpp src/geometry.cpp src/segment_creator.cpp src/segment_data.cpp)
 
 include_directories("src")
 
 #
-# The whole MSVC
+# MSVC Runtime Library Configuration
+#
+# CRITICAL: When using vcpkg or other pre-built libraries on Windows, the runtime
+# library setting MUST match between your code and the libraries.
+#
+# - vcpkg builds libraries with /MD (dynamic runtime) by default
+# - Mixing /MT (static) and /MD (dynamic) causes crashes when crossing DLL boundaries
+# - Symptoms include: STATUS_STACK_BUFFER_OVERRUN, access violations, heap corruption
+#
+# SOLUTION: Set MSVC_RUNTIME=dynamic when using vcpkg:
+#   cmake .. -DMSVC_RUNTIME=dynamic
+#
+# For more information:
+# - https://github.com/pnggroup/libpng/issues/221
+# - https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library
 #
 if(MSVC)
 	# Default to statically-linked runtime.
+	# NOTE: Override with -DMSVC_RUNTIME=dynamic when using vcpkg!
 	if("${MSVC_RUNTIME}" STREQUAL "")
   		set(MSVC_RUNTIME "static")
 	endif()
@@ -33,7 +61,7 @@ if(MSVC)
 	)
 	if(${MSVC_RUNTIME} STREQUAL "static")
 	  message(STATUS
-	    "MSVC -> forcing use of statically-linked runtime."
+	    "MSVC -> forcing use of statically-linked runtime (/MT)."
 	  )
 	  foreach(variable ${variables})
 	    if(${variable} MATCHES "/MD")
@@ -42,7 +70,7 @@ if(MSVC)
 	  endforeach()
 	else()
 	  message(STATUS
-	    "MSVC -> forcing use of dynamically-linked runtime."
+	    "MSVC -> forcing use of dynamically-linked runtime (/MD) to match vcpkg libraries."
 	  )
 	  foreach(variable ${variables})
 	    if(${variable} MATCHES "/MT")
@@ -56,6 +84,7 @@ option(WITH_EXAMPLES "compile also the example" OFF)
 option(WITH_TESTS "compile also the tests" ON)
 
 IF(WITH_TESTS)
+	enable_testing()
 	add_subdirectory (test)
 ENDIF(WITH_TESTS)
 IF(WITH_EXAMPLES)
