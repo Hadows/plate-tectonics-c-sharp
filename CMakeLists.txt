@@ -38,7 +38,30 @@ else()
     add_compile_options(-Wall -Wextra -Werror)
 endif()
 
-add_library(PlateTectonics src/sqrdmd.cpp src/heightmap.cpp src/lithosphere.cpp src/plate.cpp src/rectangle.cpp src/platecapi.cpp src/simplexnoise.cpp src/noise.cpp src/utils.cpp src/simplerandom.cpp src/plate_functions.cpp src/bounds.cpp src/movement.cpp src/mass.cpp src/segments.cpp src/world_point.cpp src/geometry.cpp src/segment_creator.cpp src/segment_data.cpp)
+set(PLATE_TECTONICS_SOURCES
+    src/sqrdmd.cpp
+    src/heightmap.cpp
+    src/lithosphere.cpp
+    src/plate.cpp
+    src/rectangle.cpp
+    src/platecapi.cpp
+    src/simplexnoise.cpp
+    src/noise.cpp
+    src/utils.cpp
+    src/simplerandom.cpp
+    src/plate_functions.cpp
+    src/bounds.cpp
+    src/movement.cpp
+    src/mass.cpp
+    src/segments.cpp
+    src/world_point.cpp
+    src/geometry.cpp
+    src/segment_creator.cpp
+    src/segment_data.cpp
+)
+
+add_library(PlateTectonics ${PLATE_TECTONICS_SOURCES})
+target_include_directories(PlateTectonics PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 include_directories("src")
 
@@ -99,6 +122,14 @@ endif()
 
 option(WITH_EXAMPLES "compile also the example" OFF)
 option(WITH_TESTS "compile also the tests" ON)
+option(WITH_CSHARP_DLL "Build shared library for C# P/Invoke (.dll/.so/.dylib)" ON)
+
+if(WITH_CSHARP_DLL)
+    add_library(PlateTectonicsCSharp SHARED ${PLATE_TECTONICS_SOURCES})
+    target_include_directories(PlateTectonicsCSharp PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    target_compile_definitions(PlateTectonicsCSharp PRIVATE PLATEC_BUILD_DLL)
+    set_target_properties(PlateTectonicsCSharp PROPERTIES OUTPUT_NAME "PlateTectonicsC")
+endif()
 
 IF(WITH_TESTS)
 	enable_testing()

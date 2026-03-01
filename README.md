@@ -1,218 +1,63 @@
-Plate-tectonics
-===============
+## C# Interop (.dll via P/Invoke)
 
-[![Build Status](https://github.com/Mindwerks/plate-tectonics/actions/workflows/push.yml/badge.svg)](https://github.com/Mindwerks/plate-tectonics/actions/workflows/push.yml)
+The C API used by Python is available in a shared library target for C# as well.
 
-This is a library to simulate plate tectonics.
-It is written in C++ and it has Python bindings (as part of this project), as well as Haskell bindings ([hplatec](http://github.com/ftomassetti/hplatec)).
+### Build the DLL (Windows)
 
-How can I use it?
-=================
+Use a Visual Studio Developer Command Prompt, then:
 
-Being a library you want probably to use it inside some larger program. From example [WorldEngine](https://github.com/Mindwerks/worldengine) (a world generator) is based on plate-tectonics.
-
-You can also use the examples to just run the code of this library and generate a few maps. However the examples do not unleash the full power of this library. For running the examples check section _Running the examples (C++)_.
-
-How it looks like
-=================
-
-The library offers an API to generate heightmaps and some other data about the world resulting from the simulation. The example permits also to generate maps like this one:
-
-![](https://raw.githubusercontent.com/Mindwerks/plate-tectonics/master/screenshots/map_grayscale.png)
-
-![](https://raw.githubusercontent.com/Mindwerks/plate-tectonics/master/screenshots/map_colors.png)
-
-You can see a video of simulation based on an old version of this library: http://www.youtube.com/watch?v=bi4b45tMEPE#t=0
-
-How to build plate-tectonics (C++)
-==================================
-
-We use [CMake](http://www.cmake.org/). Install it and then run the folowing commands
-
-### Linux
-
-```
-mkdir -p build
-cd build
-cmake .. -G "Unix Makefiles"
-make
-```
-
-### Mac OS-X
-
-```
-mkdir -p build
-cd build
-cmake ..
-make
-```
-
-This should produce a library (libPlateTectonics.a) in the build directory.
-
-### Windows
-
-```
+```bash
 mkdir build
 cd build
-cmake ..
-cmake --build .
+cmake .. -DWITH_CSHARP_DLL=ON -DWITH_TESTS=OFF
+cmake --build . --target PlateTectonicsCSharp --config Release
 ```
 
-If you want to build also the examples run:
+Output library name:
+- `PlateTectonicsC.dll` (plus import library `PlateTectonicsC.lib`)
 
-```
-mkdir -p build
-cd build
-cmake .. -DWITH_EXAMPLES=ON
-make
-```
+Depending on generator, artifacts are in `build/` or `build/Release/`.
 
-Note: All builds are now done in the `build/` directory to keep the source tree clean. The build directory is excluded from version control via `.gitignore`.
+### Minimal C# usage
 
-To compile on other platforms please run:
+```csharp
+using System;
+using System.Runtime.InteropServices;
 
-```
-cmake --help
-```
+internal static class PlatecNative
+{
+    private const string DllName = "PlateTectonicsC";
 
-Running the examples (C++)
-==========================
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr platec_api_create(
+        int seed, uint width, uint height, float sea_level, uint erosion_period,
+        float folding_ratio, uint aggr_overlap_abs, float aggr_overlap_rel,
+        uint cycle_count, uint num_plates);
 
-To run also the examples you need to install the library libpng.
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void platec_api_step(IntPtr litho);
 
-From the root directory run:
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern uint platec_api_is_finished(IntPtr litho);
 
-```bash
-mkdir -p build
-cd build
-cmake .. -DWITH_EXAMPLES=ON -G "Unix Makefiles"
-make
-cd examples
-./simulation
-```
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr platec_api_get_heightmap(IntPtr litho);
 
-How to run tests (C++)
-======================
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern uint lithosphere_getMapWidth(IntPtr litho);
 
-GoogleTest is automatically fetched by CMake using FetchContent, so no manual installation is required.
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern uint lithosphere_getMapHeight(IntPtr litho);
 
-After building the library with CMake in the build directory:
+    [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
+    public static extern void platec_api_destroy(IntPtr litho);
+}
 
-```bash
-cd build/test
-make
-./PlateTectonicsTests
-```
-
-Currently the test coverage is still poor (but improving!), tests are present only for new code and tiny portion of the old code that were refactored.
-
-## Python bindings
-
-Supported versions:
-* Python >= 3.9
-
-### Quick Start (Python)
-
-Install using pip:
-
-```bash
-pip install PyPlatec
-```
-
-### Usage (Python)
-
-The library is quite simple. `platec.create()` requires all 10 parameters and supports both positional and keyword arguments:
-
-```python    
-    import platec
-
-    # Using positional arguments
-    p = platec.create(3, 512, 512, 0.65, 60, 0.02, 1000000, 0.33, 2, 10)
-    
-    while platec.is_finished(p) == 0:
-        platec.step(p)
-    
-    hm = platec.get_heightmap(p)
-    platec.destroy(p)
-```    
-
-
-With keyword arguments for clarity:
-
-```python
-    import platec
-    
-    # Using keyword arguments (recommended for readability)
-    p = platec.create(
-        seed=3,
-        width=1000,
-        height=800,
-        sea_level=0.65,
-        erosion_period=60,
-        folding_ratio=0.02,
-        aggr_overlap_abs=1000000,
-        aggr_overlap_rel=0.33,
-        cycle_count=2,
-        num_plates=10
-    )
-    
-    while platec.is_finished(p) == 0:
-        platec.step(p)
-    
-    hm = platec.get_heightmap(p)
-    platec.destroy(p)
-```
-
-### Building from Source (Python)
-
-If you need to build from source instead of using pre-built wheels:
-
-```bash
-cd pybindings
-python setup.py build
-python setup.py install
-```
-
-For development:
-```bash
-pip install -e .
-```
-
-Code Quality and Linting
-=========================
-
-This project uses C++ linters to maintain code quality. See [LINTING.md](LINTING.md) for details.
-
-Quick start:
-```bash
-# Run all linters
-./run_linter.sh
-
-# Run specific linter
-./run_linter.sh clang-tidy
-./run_linter.sh cppcheck
-
-# Format code
-./run_astyle.sh
-```
-
-Plans for the future
-====================
-
-* Improve the quality of the code and add some tests
-* Support Google protocol buffer
-
-Projects using plate-tectonics
-==============================
-
-[WorldEngine](http://github.com/Mindwerks/worldengine), a world generator  
-[Widelands](https://www.widelands.org/maps/lost-islands/), a free, open source real-time strategy game  
-
-Original project
-================
-
-A fork of platec http://sourceforge.net/projects/platec/ .
-That project is part of a Bachelor of Engineering thesis in Metropolia University of Applied Sciences, Helsinki, Finland. The thesis is freely downloadable from http://urn.fi/URN:NBN:fi:amk-201204023993 .
-
-Kudos to the original author: Lauri Viitanen!
+// Example:
+// var p = PlatecNative.platec_api_create(3, 512, 512, 0.65f, 60, 0.02f, 1000000, 0.33f, 2, 10);
+// while (PlatecNative.platec_api_is_finished(p) == 0) PlatecNative.platec_api_step(p);
+// uint w = PlatecNative.lithosphere_getMapWidth(p), h = PlatecNative.lithosphere_getMapHeight(p);
+// float[] hm = new float[w * h];
+// Marshal.Copy(PlatecNative.platec_api_get_heightmap(p), hm, 0, hm.Length);
+// PlatecNative.platec_api_destroy(p);
 

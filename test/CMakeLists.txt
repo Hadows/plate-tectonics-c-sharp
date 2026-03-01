@@ -7,29 +7,63 @@ FetchContent_Declare(
 )
 
 # For Windows: Prevent overriding the parent project's compiler/linker settings
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+if(MSVC)
+  if(DEFINED MSVC_RUNTIME AND MSVC_RUNTIME STREQUAL "dynamic")
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+  else()
+    set(gtest_force_shared_crt OFF CACHE BOOL "" FORCE)
+  endif()
+endif()
 
 # Make GoogleTest available
 FetchContent_MakeAvailable(googletest)
 
 project (PlateTectonicsTests)
 
-# Find PNG for regression test artifacts
-set(CMAKE_FIND_FRAMEWORK LAST)
-find_package(PNG REQUIRED)
+# Build tests list. Regression PNG test is added only when PNG is available.
+set(PLATE_TEST_SOURCES
+  test_acceptance.cpp
+  test_heightmap.cpp
+  test_plate.cpp
+  test_rectangle.cpp
+  test_sqrdmd.cpp
+  test_randomness.cpp
+  test_portability.cpp
+  test_bounds.cpp
+  test_mass.cpp
+  test_movement.cpp
+)
 
-add_executable(PlateTectonicsTests test_acceptance.cpp test_heightmap.cpp test_plate.cpp test_rectangle.cpp test_sqrdmd.cpp test_randomness.cpp test_portability.cpp test_bounds.cpp test_mass.cpp test_movement.cpp test_regression.cpp ../examples/map_drawing.cpp)
+# Find PNG for regression test artifacts (optional)
+set(CMAKE_FIND_FRAMEWORK LAST)
+find_package(PNG QUIET)
+if(PNG_FOUND)
+  list(APPEND PLATE_TEST_SOURCES
+    test_regression.cpp
+    ../examples/map_drawing.cpp
+  )
+else()
+  message(STATUS "PNG/ZLIB not found: skipping test_regression.cpp")
+endif()
+
+add_executable(PlateTectonicsTests ${PLATE_TEST_SOURCES})
 
 add_test(NAME PlateTectonicsTests COMMAND PlateTectonicsTests)
 # Set working directory for tests to the build root so PNG artifacts are written to a known location
 set_tests_properties(PlateTectonicsTests PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
-include_directories("../src" "../examples" ${PNG_INCLUDE_DIRS})
+target_include_directories(PlateTectonicsTests PRIVATE ../src ../examples)
+if(PNG_FOUND)
+  target_include_directories(PlateTectonicsTests PRIVATE ${PNG_INCLUDE_DIRS})
+endif()
 
 # Standard linking to gtest stuff.
-target_link_libraries(PlateTectonicsTests gtest gtest_main)
+target_link_libraries(PlateTectonicsTests PRIVATE gtest gtest_main)
 
 # Extra linking for the project.
-target_link_libraries(PlateTectonicsTests PlateTectonics PNG::PNG)
+target_link_libraries(PlateTectonicsTests PRIVATE PlateTectonics)
+if(PNG_FOUND)
+  target_link_libraries(PlateTectonicsTests PRIVATE PNG::PNG)
+endif()
 
 
